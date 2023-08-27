@@ -1,6 +1,6 @@
 # AtomicSwap
 
-![Alt text](demo/demo.png?raw=true "Atomic Swap")
+![Alt text](images/demo.png?raw=true "Atomic Swap")
 
 This repository contains a project can support multiple chains atomic swap based on hashed time lock contract.
 
