@@ -15,36 +15,58 @@
  * 6. amount.
  * 7. timelock -> expired data.
  */
-export function SwapRequest() {
+export function SwapRequest({newSwap}) {
     return (
         <div className="card p-3 mb-5">
             <div className="card-header mb-3">
                 <h3>Swap Request</h3>                
             </div>
-            <form>
+            <form onSubmit = {(event) => {
+                event.preventDefault();
+
+                const formData = new FormData(event.target);
+                const isInitiator = formData.get("isInitiator");
+                const receiver = formData.get("receiver");
+                const hashlock = formData.get("hashlock");
+                let timelock = formData.get("timelock");
+                const tokenType = formData.get("tokenType");
+                const tokenAddress = formData.get("tokenAddress");
+                const tokenAmount = formData.get("tokenAmount");
+                const tokenId = formData.get("tokenId");
+
+                let duration;
+                if (timelock == "1h") {
+                    duration = 60 * 60
+                } else if (timelock == "2h") {
+                    duration = 2 * 60 * 60
+                } else if (timelock == "1d") {
+                    duration = 24 * 60 * 60
+                }
+
+                timelock = Math.floor(Date.now() / 1000) + duration;
+                
+                console.log("newSwap with", receiver, hashlock, timelock,
+                tokenType, tokenAddress, tokenId, tokenAmount)
+                newSwap(receiver, hashlock, timelock, tokenType, tokenAddress, tokenId, tokenAmount);
+            }}>
                 <div className="form-check form-switch">
-                    <input className="form-check-input" type="checkbox" role="switch" id="isInitiator"/>
-                    <label className="form-check-label" for="isInitiator">Initiator</label>
+                    <input className="form-check-input" name="isInitiator" type="checkbox" role="switch" id="isInitiator"/>
+                    <label className="form-check-label" htmlFor="isInitiator">Initiator</label>
                 </div>
 
                 <div className="mb-3">
-                    <label for="preImage">PreImage</label>
-                    <input type="password" id="preImage" className="form-control"></input>
+                    <label htmlFor="hashLock">HashLock</label>
+                    <input type="text" name="hashlock" className="form-control"></input>
                 </div>
 
                 <div className="mb-3">
-                    <label for="hashLock">HashLock</label>
-                    <input type="text" id="hashLock" className="form-control"></input>
+                    <label htmlFor="receiver">Receiver Address</label>
+                    <input type="text" name="receiver" className="form-control"></input>
                 </div>
 
                 <div className="mb-3">
-                    <label for="receiver">Receiver Address</label>
-                    <input type="text" id="receiver" className="form-control"></input>
-                </div>
-
-                <div className="mb-3">
-                    <label for="tokenAddress" className="mr-3">Token Type:</label>
-                    <select className="form-select" aria-label="Token type">
+                    <label htmlFor="tokenAddress" className="mr-3">Token Type:</label>
+                    <select name="tokenType" className="form-select" aria-label="Token type">
                         <option value="ether">Ether</option>
                         <option value="erc20">Erc20</option>
                         <option value="erc721">Erc721</option>
@@ -52,18 +74,23 @@ export function SwapRequest() {
                 </div>
 
                 <div className="mb-3">
-                    <label for="tokenAddress">Token Address</label>
-                    <input type="text" id="tokenAddress" className="form-control"></input>
+                    <label htmlFor="tokenAddress">Token Address (for ERC721 and ERC20) </label>
+                    <input type="text" name="tokenAddress" className="form-control"></input>
                 </div>
 
                 <div className="mb-3">
-                    <label for="amount">Amount</label>
-                    <input type="text" id="amount" className="form-control"></input>
+                    <label htmlFor="tokenId">Token Id (for ERC721) </label>
+                    <input type="text" name="tokenId" className="form-control"></input>
                 </div>
 
                 <div className="mb-3">
-                    <label for="timeLock" className="mr-3">TimeLock</label>
-                    <select className="form-select" aria-label="TimeLock">
+                    <label htmlFor="amount">Amount (for Ether and ERC20)</label>
+                    <input type="text" name="tokenAmount" className="form-control"></input>
+                </div>
+
+                <div className="mb-3">
+                    <label htmlFor="timeLock" className="mr-3">TimeLock</label>
+                    <select name="timelock" className="form-select" aria-label="TimeLock">
                         <option value="1h">One Hour</option>
                         <option value="2h">Two Hours</option>
                         <option value="1d">One Day</option>

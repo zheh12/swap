@@ -3,6 +3,8 @@
 
 const path = require("path");
 
+const contracts = ["SwapEther", "SwapErc20", "SwapErc721"]
+
 async function main() {
   // This is just a convenience check
   if (network.name === "hardhat") {
@@ -22,17 +24,21 @@ async function main() {
 
   console.log("Account balance:", (await deployer.getBalance()).toString());
 
-  const Token = await ethers.getContractFactory("Token");
-  const token = await Token.deploy();
-  await token.deployed();
+  for (let i = 0; i < contracts.length; i++) {
+    let contract = contracts[i];
 
-  console.log("Token address:", token.address);
-
-  // We also save the contract's artifacts and address in the frontend directory
-  saveFrontendFiles(token);
+    const Swap = await ethers.getContractFactory(contract);
+    const swap = await Swap.deploy();
+    await swap.deployed();
+  
+    console.log("Swap ", contract, " Address: ", swap.address);
+  
+    // We also save the contract's artifacts and address in the frontend directory
+    saveFrontendFiles(contract, swap); 
+  }
 }
 
-function saveFrontendFiles(token) {
+function saveFrontendFiles(contract, swap) {
   const fs = require("fs");
   const contractsDir = path.join(__dirname, "..", "frontend", "src", "contracts");
 
@@ -41,15 +47,15 @@ function saveFrontendFiles(token) {
   }
 
   fs.writeFileSync(
-    path.join(contractsDir, "contract-address.json"),
-    JSON.stringify({ Token: token.address }, undefined, 2)
+    path.join(contractsDir, contract + "-contract-address.json"),
+    JSON.stringify({ Swap: swap.address }, undefined, 2)
   );
 
-  const TokenArtifact = artifacts.readArtifactSync("Token");
+  const ContractArtifact = artifacts.readArtifactSync(contract);
 
   fs.writeFileSync(
-    path.join(contractsDir, "Token.json"),
-    JSON.stringify(TokenArtifact, null, 2)
+    path.join(contractsDir, contract + ".json"),
+    JSON.stringify(ContractArtifact, null, 2)
   );
 }
 

@@ -6,7 +6,7 @@ pragma solidity ^0.8.9;
 import "./Swap.sol";
 import "hardhat/console.sol";
 
-contract SwapEther is Swap {
+contract SwapErc20 is Swap {
     event NewSwap(
         bytes32 indexed swapId,
         address indexed sender,

@@ -1,13 +1,14 @@
-# Hardhat Boilerplate
+# AtomicSwap
 
-This repository contains a sample project that you can use as the starting point
-for your Ethereum project. It's also a great fit for learning the basics of
-smart contract development.
+![Alt text](demo/demo.png?raw=true "Atomic Swap")
 
-This project is intended to be used with the
-[Hardhat Beginners Tutorial](https://hardhat.org/tutorial), but you should be
-able to follow it by yourself by reading the README and exploring its
-`contracts`, `tests`, `scripts` and `frontend` directories.
+This repository contains a project can support multiple chains atomic swap based on hashed time lock contract.
+
+The code struct:
+1. contracts -> the smart contracts source files.
+2. frontend -> the frontend code using react.
+3. scripts -> the code to deploy the three smart contracts
+4. test -> smart contract test code
 
 ## Quick start
 
@@ -15,8 +16,8 @@ The first things you need to do are cloning this repository and installing its
 dependencies:
 
 ```sh
-git clone https://github.com/NomicFoundation/hardhat-boilerplate.git
-cd hardhat-boilerplate
+git clone https://github.com/zheh12/swap.git
+cd swap
 npm install
 ```
 
@@ -47,15 +48,22 @@ need to have [Coinbase Wallet](https://www.coinbase.com/wallet) or [Metamask](ht
 
 ## User Guide
 
-You can find detailed instructions on using this repository and many tips in [its documentation](https://hardhat.org/tutorial).
+The smart contract have 3 interface.
 
-- [Writing and compiling contracts](https://hardhat.org/tutorial/writing-and-compiling-contracts/)
-- [Setting up the environment](https://hardhat.org/tutorial/setting-up-the-environment/)
-- [Testing Contracts](https://hardhat.org/tutorial/testing-contracts/)
-- [Setting up your wallet](https://hardhat.org/tutorial/boilerplate-project#how-to-use-it)
-- [Hardhat's full documentation](https://hardhat.org/docs/)
+1. newSwap
+2. withdraw
+3. rollback
 
-For a complete introduction to Hardhat, refer to [this guide](https://hardhat.org/getting-started/#overview).
+So the flow for the logic is user A and user B
+
+1. User A start create a preimage.
+2. User A do a hash for the preimage to generate a hashlock.
+3. User A create a new swap with the hashlock and timelock.
+4. User A exchange the hashlock to User B
+5. User B create a new swap with the same hashlock as User A.
+6. User A withdraw user B asset with the preimage.
+7. If User A success withdraw, the preimage will be public to everyone.
+8. Then User B can use the same preimage to withdraw User A asset.
 
 ## What's Included?
 

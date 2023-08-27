@@ -5,8 +5,12 @@ import { ethers } from "ethers";
 
 // We import the contract's artifacts and address here, as we are going to be
 // using them with ethers
-import TokenArtifact from "../contracts/Token.json";
-import contractAddress from "../contracts/contract-address.json";
+import SwaperEtherArtifact from "../contracts/SwapEther.json";
+import swapEtherContractAddress from "../contracts/SwapEther-contract-address.json";
+import SwaperErc20Artifact from "../contracts/SwapErc20.json";
+import swapErc20ContractAddress from "../contracts/SwapErc20-contract-address.json";
+import SwaperErc721Artifact from "../contracts/SwapErc721.json";
+import swapErc721ContractAddress from "../contracts/SwapErc721-contract-address.json";
 
 // All the logic of this dapp is contained in the Dapp component.
 // These other components are just presentational ones: they don't have any
@@ -14,11 +18,10 @@ import contractAddress from "../contracts/contract-address.json";
 import { NoWalletDetected } from "./NoWalletDetected";
 import { ConnectWallet } from "./ConnectWallet";
 import { Loading } from "./Loading";
-import { Transfer } from "./Transfer";
-import { TransactionErrorMessage } from "./TransactionErrorMessage";
 import { WaitingForTransactionMessage } from "./WaitingForTransactionMessage";
-import { NoTokensMessage } from "./NoTokensMessage";
+import { TransactionErrorMessage } from "./TransactionErrorMessage";
 import { SwapContract } from "./swap/SwapContract";
+import SwapMessage from "./swap/NewSwap";
 
 // This is the default id used by the Hardhat Network
 const HARDHAT_NETWORK_ID = '31337';
@@ -29,7 +32,7 @@ const ERROR_CODE_TX_REJECTED_BY_USER = 4001;
 // This component is in charge of doing these things:
 //   1. It connects to the user's wallet
 //   2. Initializes ethers and the Token contract
-//   3. Polls the user balance to keep it updated.
+//   3. Polls the user balance to keep it suted.
 //   4. Transfers tokens by sending transactions
 //   5. Renders the whole application
 //
@@ -43,15 +46,15 @@ export class Dapp extends React.Component {
     // We store multiple things in Dapp's state.
     // You don't need to follow this pattern, but it's an useful example.
     this.initialState = {
-      // The info of the token (i.e. It's Name and symbol)
-      tokenData: undefined,
       // The user's address and balance
       selectedAddress: undefined,
-      balance: undefined,
       // The ID about transactions being sent, and any possible error with them
       txBeingSent: undefined,
       transactionError: undefined,
       networkError: undefined,
+
+      // swap
+      swap: undefined
     };
 
     this.state = this.initialState;
@@ -83,7 +86,7 @@ export class Dapp extends React.Component {
 
     // If the token data or the user's balance hasn't loaded yet, we show
     // a loading component.
-    if (!this.state.tokenData || !this.state.balance) {
+    if (!this.state.selectedAddress) {
       return <Loading />;
     }
 
@@ -92,7 +95,56 @@ export class Dapp extends React.Component {
       <div className="container p-4">
         <div className="row">
           <div className="col-12">
-            <SwapContract></SwapContract>
+            <p>
+              Welcome <b>{this.state.selectedAddress}</b>.
+            </p>
+          </div>
+        </div>
+
+        <hr />
+
+        <div className="row">
+          <div className="col-12">
+            {/* 
+              Sending a transaction isn't an immediate action. You have to wait
+              for it to be mined.
+              If we are waiting for one, we show a message here.
+            */}
+            {this.state.txBeingSent && (
+              <WaitingForTransactionMessage txHash={this.state.txBeingSent} />
+            )}
+
+            {this.state.swap && (
+              <SwapMessage
+                message = {this.state.swap}
+                dismiss = {() => this._dismissNewSwapEvent()}
+              />
+            )}
+
+            {/* 
+              Sending a transaction can fail in multiple ways. 
+              If that happened, we show a message here.
+            */}
+            {this.state.transactionError && (
+              <TransactionErrorMessage
+                message={this._getRpcErrorMessage(this.state.transactionError)}
+                dismiss={() => this._dismissTransactionError()}
+              />
+            )}
+          </div>
+        </div>
+
+        <div className="row">
+          <div className="col-12">
+            <SwapContract 
+              newSwap={ (receiver, hashlock, timelock, tokenType, tokenContractAddress,
+                  tokenId, tokenAmount) => this._createNewSwap(receiver, hashlock, timelock, tokenType, 
+                tokenContractAddress,
+                tokenId, tokenAmount)}
+              getSwap = { (tokenType, swapId) => this._getSwap(tokenType, swapId)}
+              withdraw = { (tokenType, swapId, preImage) => this._swapWithdraw(tokenType, swapId, preImage)}
+              rollback = { (tokenType, swapId) => this._swapRollback(tokenType, swapId) } >
+            </SwapContract>
           </div>
         </div>
       </div>
@@ -113,10 +165,9 @@ export class Dapp extends React.Component {
     // It returns a promise that will resolve to the user's address.
     const [selectedAddress] = await window.ethereum.request({ method: 'eth_requestAccounts' });
 
-    // Once we have the address, we can initialize the application.
+    console.log("get selected address", selectedAddress)
 
-    // First we check the network
-    this._checkNetwork();
+    // Once we have the address, we can initialize the application.
 
     this._initialize(selectedAddress);
 
@@ -149,7 +200,6 @@ export class Dapp extends React.Component {
     // Fetching the token data and the user's balance are specific to this
     // sample project, but you can reuse the same initialization pattern.
     this._initializeEthers();
-    this._getTokenData();
     this._startPollingData();
   }
 
@@ -159,11 +209,25 @@ export class Dapp extends React.Component {
 
     // Then, we initialize the contract using that provider and the token's
     // artifact. You can do this same thing with your contracts.
-    this._token = new ethers.Contract(
-      contractAddress.Token,
-      TokenArtifact.abi,
+    this._swapEther = new ethers.Contract(
+      swapEtherContractAddress.Swap,
+      SwaperEtherArtifact.abi,
       this._provider.getSigner(0)
     );
+
+    this._swapErc20 = new ethers.Contract(
+      swapErc20ContractAddress.Swap,
+      SwaperErc20Artifact.abi,
+      this._provider.getSigner(0)
+    );
+
+    this._swapErc721 = new ethers.Contract(
+      swapErc721ContractAddress.Swap,
+      SwaperErc721Artifact.abi,
+      this._provider.getSigner(0)
+    );
+
+    console.log("init all swap smart contract end");
   }
 
   // The next two methods are needed to start and stop polling data. While
@@ -174,10 +238,10 @@ export class Dapp extends React.Component {
   // don't need to poll it. If that's the case, you can just fetch it when you
   // initialize the app, as we do with the token data.
   _startPollingData() {
-    this._pollDataInterval = setInterval(() => this._updateBalance(), 1000);
+    this._pollDataInterval = setInterval(() => {}, 1000);
 
     // We run it once immediately so we don't have to wait for it
-    this._updateBalance();
+    // this._updateBalance();
   }
 
   _stopPollingData() {
@@ -185,83 +249,13 @@ export class Dapp extends React.Component {
     this._pollDataInterval = undefined;
   }
 
-  // The next two methods just read from the contract and store the results
-  // in the component state.
-  async _getTokenData() {
-    const name = await this._token.name();
-    const symbol = await this._token.symbol();
-
-    this.setState({ tokenData: { name, symbol } });
-  }
-
-  async _updateBalance() {
-    const balance = await this._token.balanceOf(this.state.selectedAddress);
-    this.setState({ balance });
-  }
-
-  // This method sends an ethereum transaction to transfer tokens.
-  // While this action is specific to this application, it illustrates how to
-  // send a transaction.
-  async _transferTokens(to, amount) {
-    // Sending a transaction is a complex operation:
-    //   - The user can reject it
-    //   - It can fail before reaching the ethereum network (i.e. if the user
-    //     doesn't have ETH for paying for the tx's gas)
-    //   - It has to be mined, so it isn't immediately confirmed.
-    //     Note that some testing networks, like Hardhat Network, do mine
-    //     transactions immediately, but your dapp should be prepared for
-    //     other networks.
-    //   - It can fail once mined.
-    //
-    // This method handles all of those things, so keep reading to learn how to
-    // do it.
-
-    try {
-      // If a transaction fails, we save that error in the component's state.
-      // We only save one such error, so before sending a second transaction, we
-      // clear it.
-      this._dismissTransactionError();
-
-      // We send the transaction, and save its hash in the Dapp's state. This
-      // way we can indicate that we are waiting for it to be mined.
-      const tx = await this._token.transfer(to, amount);
-      this.setState({ txBeingSent: tx.hash });
-
-      // We use .wait() to wait for the transaction to be mined. This method
-      // returns the transaction's receipt.
-      const receipt = await tx.wait();
-
-      // The receipt, contains a status flag, which is 0 to indicate an error.
-      if (receipt.status === 0) {
-        // We can't know the exact error that made the transaction fail when it
-        // was mined, so we throw this generic one.
-        throw new Error("Transaction failed");
-      }
-
-      // If we got here, the transaction was successful, so you may want to
-      // update your state. Here, we update the user's balance.
-      await this._updateBalance();
-    } catch (error) {
-      // We check the error code to see if this error was produced because the
-      // user rejected a tx. If that's the case, we do nothing.
-      if (error.code === ERROR_CODE_TX_REJECTED_BY_USER) {
-        return;
-      }
-
-      // Other errors are logged and stored in the Dapp's state. This is used to
-      // show them to the user, and for debugging.
-      console.error(error);
-      this.setState({ transactionError: error });
-    } finally {
-      // If we leave the try/catch, we aren't sending a tx anymore, so we clear
-      // this part of the state.
-      this.setState({ txBeingSent: undefined });
-    }
-  }
-
   // This method just clears part of the state.
   _dismissTransactionError() {
     this.setState({ transactionError: undefined });
+  }
+
+  _dismissNewSwapEvent() {
+    this.setState({ swap: undefined });
   }
 
   // This method just clears part of the state.
@@ -284,19 +278,169 @@ export class Dapp extends React.Component {
     this.setState(this.initialState);
   }
 
-  async _switchChain() {
-    const chainIdHex = `0x${HARDHAT_NETWORK_ID.toString(16)}`
-    await window.ethereum.request({
-      method: "wallet_switchEthereumChain",
-      params: [{ chainId: chainIdHex }],
-    });
-    await this._initialize(this.state.selectedAddress);
+  async _createNewSwap(receiver, hashlock, timelock, tokenType,
+    tokenContractAddress,
+    tokenId, tokenAmount) {
+      console.log("tokenAmount",receiver, hashlock, timelock,
+      tokenType, tokenContractAddress, tokenId, tokenAmount)
+      try {
+        this._dismissTransactionError();
+        let contract;
+        let tx;
+        if (tokenType == "ether") {
+          tx = await this._swapEther.newSwap(receiver, hashlock, timelock,
+            { value: ethers.BigNumber.from(tokenAmount) })
+        } else if (tokenType == "ERC20") {
+          tx = await this._swapErc20.newSwap(receiver, hashlock, timelock,
+            tokenContractAddress, ethers.BigNumber.from(tokenAmount));
+        } else {
+          tx = await this._swapErc721.newSwap(receiver, hashlock, timelock,
+            tokenContractAddress, ethers.BigNumber.from(tokenId))
+        }
+
+        console.log("newSwap tx", tx)
+        this.setState({txBeingSent: tx.hash})
+
+        // wait confirm
+        const receipt = await tx.wait();
+        console.log("newSwap tx receipt", receipt)
+
+        // some error
+        if (receipt.status == 0) {
+          throw new Error("Transaction failed");
+        }
+
+        this.setState({
+          swap: receipt.events[0].args
+        })
+      } catch (error) {
+        // We check the error code to see if this error was produced because the
+        // user rejected a tx. If that's the case, we do nothing.
+        if (error.code === ERROR_CODE_TX_REJECTED_BY_USER) {
+          return;
+        }
+
+        // Other errors are logged and stored in the Dapp's state. This is used to
+        // show them to the user, and for debugging.
+        console.error(error);
+        this.setState({ transactionError: error });
+      } finally {
+        this.setState({
+          txBeingSent: undefined
+        });
+      }
   }
 
-  // This method checks if the selected network is Localhost:8545
-  _checkNetwork() {
-    if (window.ethereum.networkVersion !== HARDHAT_NETWORK_ID) {
-      this._switchChain();
+  async _getSwap(tokenType, swapId) {
+    console.log("get swap", tokenType, swapId)
+    try {
+      this._dismissTransactionError();
+      let contract = this._getContract(tokenType);
+      
+      let swap = await contract.getSwap(swapId);
+
+      console.log("getSwap swap", swap)
+
+      this.setState(
+        {swap: swap}
+      )
+    } catch (error) {
+      // We check the error code to see if this error was produced because the
+      // user rejected a tx. If that's the case, we do nothing.
+      if (error.code === ERROR_CODE_TX_REJECTED_BY_USER) {
+        return;
+      }
+
+      // Other errors are logged and stored in the Dapp's state. This is used to
+      // show them to the user, and for debugging.
+      console.error(error);
+      this.setState({ transactionError: error });
+    } finally {
+      this.setState({
+        txBeingSent: undefined
+      });
+    }
+  }
+
+  async _swapWithdraw(tokenType, swapId, preimage) {
+    try {
+      this._dismissTransactionError();
+      let contract = this._getContract(tokenType);
+      
+      let tx = await contract.withdraw(swapId, preimage);
+
+      console.log("withdraw tx", tx)
+      this.setState({txBeingSent: tx.hash})
+
+      // wait confirm
+      const receipt = await tx.wait();
+      console.log("withdraw tx receipt", receipt)
+      
+      // some error
+      if (receipt.status == 0) {
+        throw new Error("Transaction failed");
+      }
+    } catch (error) {
+      // We check the error code to see if this error was produced because the
+      // user rejected a tx. If that's the case, we do nothing.
+      if (error.code === ERROR_CODE_TX_REJECTED_BY_USER) {
+        return;
+      }
+
+      // Other errors are logged and stored in the Dapp's state. This is used to
+      // show them to the user, and for debugging.
+      console.error(error);
+      this.setState({ transactionError: error });
+    } finally {
+      this.setState({
+        txBeingSent: undefined
+      });
+    }
+  }
+
+  async _swapRollback(tokenType, swapId) {
+    try {
+      this._dismissTransactionError();
+      let contract = this._getContract(tokenType);
+      
+      let tx = await contract.rollback(swapId);
+
+      console.log("rollback tx", tx)
+      this.setState({txBeingSent: tx.hash})
+
+      // wait confirm
+      const receipt = await tx.wait();
+      console.log("rollback tx receipt", receipt)
+      
+      // some error
+      if (receipt.status == 0) {
+        throw new Error("Transaction failed");
+      }
+    } catch (error) {
+      // We check the error code to see if this error was produced because the
+      // user rejected a tx. If that's the case, we do nothing.
+      if (error.code === ERROR_CODE_TX_REJECTED_BY_USER) {
+        return;
+      }
+
+      // Other errors are logged and stored in the Dapp's state. This is used to
+      // show them to the user, and for debugging.
+      console.error(error);
+      this.setState({ transactionError: error });
+    } finally {
+      this.setState({
+        txBeingSent: undefined
+      });
+    }
+  }
+
+  _getContract(tokenType) {
+    if (tokenType == "ether") {
+      return this._swapEther;
+    } else if (tokenType == "erc20") {
+      return this._swapErc20;
+    } else {
+      return this._swapErc721;
     }
   }
 }

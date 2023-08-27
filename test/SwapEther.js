@@ -61,6 +61,10 @@ describe("Swap contract", function() {
         const preimage = ethers.utils.formatBytes32String("hello");
         const hashlock = ethers.utils.sha256(preimage);
 
+        console.log("preimage", preimage)
+        console.log("hashlock", hashlock)
+        console.log("timelock", timelock)
+
         const tx = await swapContract.newSwap(addr1.address, hashlock,
             timelock, {value: 1000000000000000});
 
@@ -134,6 +138,6 @@ describe("Swap contract", function() {
                     console.error(ex);
                     reject(ex);
                 }
-            }, 1000));
+            }, 2000));
     });
 });

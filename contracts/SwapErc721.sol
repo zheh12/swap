@@ -7,7 +7,7 @@ import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
 import "./Swap.sol";
 import "hardhat/console.sol";
 
-contract SwapEther is Swap {
+contract SwapErc721 is Swap {
     event NewSwap(
         bytes32 indexed swapId,
         address indexed sender,
